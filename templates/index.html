@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Terraria Controller</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="panel">
+    <header>
+      <div>
+        <p class="eyebrow">GITHUB CODESPACES</p>
+        <h1>Terraria Controller</h1>
+        <p class="subtitle">Controle remoto do seu ambiente e servidor.</p>
+      </div>
+      <span id="badge" class="badge">VERIFICANDO</span>
+    </header>
+
+    <section class="status-grid">
+      <div class="card">
+        <span>Codespace</span>
+        <strong id="codespaceState">—</strong>
+      </div>
+      <div class="card">
+        <span>Nome</span>
+        <strong id="codespaceName">—</strong>
+      </div>
+      <div class="card">
+        <span>Máquina</span>
+        <strong id="machine">—</strong>
+      </div>
+      <div class="card">
+        <span>Terraria</span>
+        <strong id="terraria">Não verificado</strong>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button id="start" onclick="startAll()">LIGAR CODESPACE</button>
+      <button id="stop" class="danger" onclick="stopAll()">DESLIGAR CODESPACE</button>
+    </section>
+
+    <section class="log">
+      <div class="log-title">LOG</div>
+      <pre id="log">Pronto.</pre>
+    </section>
+  </main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function log(message) {
+  $("log").textContent = `[${new Date().toLocaleTimeString()}] ${message}\n` + $("log").textContent;
+}
+
+async function api(url, options = {}) {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.error || "Erro desconhecido");
+  }
+  return data;
+}
+
+async function refresh() {
+  try {
+    const data = await api("/api/status");
+    const c = data.codespace;
+
+    $("codespaceState").textContent = c.state || "—";
+    $("codespaceName").textContent = c.name || "—";
+    $("machine").textContent = c.machine || "—";
+
+    if (c.state === "Available") {
+      $("badge").textContent = "ONLINE";
+      $("badge").className = "badge online";
+    } else {
+      $("badge").textContent = (c.state || "OFFLINE").toUpperCase();
+      $("badge").className = "badge";
+    }
+  } catch (err) {
+    $("badge").textContent = "ERRO";
+    $("badge").className = "badge danger-badge";
+    log(err.message);
+  }
+}
+
+async function startAll() {
+  $("start").disabled = true;
+  log("Solicitando inicialização do Codespace...");
+  try {
+    const data = await api("/api/codespace/start", {method: "POST"});
+    log(data.message);
+    if (data.codespace?.web_url) {
+      log("Codespace disponível.");
+    }
+    await refresh();
+    log("Próxima etapa: iniciar automaticamente Playit + Terraria.");
+  } catch (err) {
+    log("ERRO: " + err.message);
+  } finally {
+    $("start").disabled = false;
+  }
+}
+
+async function stopAll() {
+  $("stop").disabled = true;
+  log("Solicitando parada do Codespace...");
+  try {
+    const data = await api("/api/codespace/stop", {method: "POST"});
+    log(data.message);
+    await refresh();
+  } catch (err) {
+    log("ERRO: " + err.message);
+  } finally {
+    $("stop").disabled = false;
+  }
+}
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
